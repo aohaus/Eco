@@ -79,6 +79,22 @@ export const WorldMapScreen: React.FC<WorldMapScreenProps> = ({
 
   const areas = [
     {
+      id: 'explorer',
+      title: language === 'ja' ? '🌍 地球レスキュー (Eco Explorer)' : '🌍 Eco Explorer: Earth Rescue',
+      desc: language === 'ja' ? '衛星レーダーで世界の環境ホットスポットを探索！ソーラーガジェットを展開して海洋・熱帯雨林・氷河を再生！' : 'Scan global hot zones with orbital radar & deploy high-tech science gadgets to rescue coral reefs, rainforests, and glaciers!',
+      icon: Zap,
+      badge: language === 'ja' ? '🚀 SF科学レスキュー' : '🚀 Sci-Fi Rescue Missions',
+      bgColor: 'from-[#0b1b2f] to-[#132c4a]',
+      borderColor: 'border-cyan-400',
+      textColor: 'text-cyan-200',
+      tagBg: 'bg-cyan-500 text-stone-950 font-black',
+      accentColor: 'text-cyan-400',
+      btnBg: 'bg-gradient-to-r from-cyan-500 to-emerald-400 hover:from-cyan-400 hover:to-emerald-300 text-stone-950 font-black',
+      exp: '+250~500 PTS',
+      isHot: true,
+      isSciFi: true,
+    },
+    {
       id: 'buddy',
       title: language === 'ja' ? '相棒シャトミンのお部屋' : 'Buddy Shatomin Haven',
       desc: language === 'ja' ? 'なでなで、きのみのご飯、シャトル遊びで「なかよし度」をアップ！' : 'Pet, feed berries, and play shuttle toss to level up your Buddy Rank!',
@@ -456,14 +472,14 @@ export const WorldMapScreen: React.FC<WorldMapScreenProps> = ({
                     </div>
                   </div>
 
-                  <p className="text-xs text-stone-700 leading-relaxed">
+                  <p className={`text-xs leading-relaxed ${area.isSciFi ? 'text-cyan-100' : 'text-stone-700'}`}>
                     {area.desc}
                   </p>
                 </div>
 
                 {/* Bottom button */}
-                <div className="mt-5 pt-3 border-t border-black/5 flex items-center justify-between">
-                  <span className="text-xs font-bold text-stone-600 flex items-center gap-1">
+                <div className={`mt-5 pt-3 flex items-center justify-between border-t ${area.isSciFi ? 'border-white/10' : 'border-black/5'}`}>
+                  <span className={`text-xs font-bold flex items-center gap-1 ${area.isSciFi ? 'text-cyan-300' : 'text-stone-600'}`}>
                     <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
                     <span>{language === 'ja' ? 'エリア探索' : 'Explore Area'}</span>
                   </span>

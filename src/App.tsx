@@ -14,6 +14,7 @@ import { ShatominCompanionWidget } from './components/ShatominCompanionWidget';
 import { BuddyScreen } from './components/BuddyScreen';
 import { EcoDexScreen } from './components/EcoDexScreen';
 import { CraftingBenchScreen } from './components/CraftingBenchScreen';
+import { EcoExplorerScreen } from './components/explorer/EcoExplorerScreen';
 import { DailyRouletteModal } from './components/DailyRouletteModal';
 import { TrainerCardModal } from './components/TrainerCardModal';
 import { sounds } from './utils/soundEffects';
@@ -415,6 +416,16 @@ export const App: React.FC = () => {
                 onAddPoints={handleAddBonusPoints}
                 onOpenRoulette={() => setIsRouletteOpen(true)}
                 onOpenTrainerCard={() => setIsTrainerPassOpen(true)}
+              />
+            )}
+
+            {/* 1.5. Eco Explorer: Earth Rescue Missions (Sci-Fi Global Rescue) */}
+            {activeTab === 'explorer' && (
+              <EcoExplorerScreen
+                language={language}
+                onAddPoints={handleAddBonusPoints}
+                onAddExp={(exp) => handleAddBonusPoints(exp)}
+                onReturnToAppMap={() => setActiveTab('map')}
               />
             )}
 

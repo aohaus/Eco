@@ -246,6 +246,32 @@ class SoundEffectManager {
     }
   }
 
+  // Short electronic radar beep / radar blip
+  playBeep(frequency = 880) {
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(frequency, now);
+
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.09);
+    } catch {
+      // Ignore
+    }
+  }
+
   // Triumphant Fanfare for level up or completing quests
   playFanfare() {
     try {
@@ -430,6 +456,114 @@ class SoundEffectManager {
   // Catch Monster / Discovery chime
   playCatchMonster() {
     this.playFanfare();
+  }
+
+  // --- Sci-Fi Eco Explorer Audio Effects ---
+
+  // Radar Proximity Ping (Cold = low freq, Hot = high freq double chirp)
+  playRadarPing(proximity: 'cold' | 'warm' | 'hot' | 'locked') {
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      let freq = 440;
+      let duration = 0.08;
+
+      if (proximity === 'cold') freq = 520;
+      else if (proximity === 'warm') freq = 880;
+      else if (proximity === 'hot') freq = 1320;
+      else if (proximity === 'locked') freq = 1760;
+
+      osc.frequency.setValueAtTime(freq, now);
+      osc.frequency.exponentialRampToValueAtTime(freq * 1.25, now + duration);
+
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + duration + 0.02);
+
+      // If hot or locked, play second echo chirp
+      if (proximity === 'hot' || proximity === 'locked') {
+        const osc2 = this.ctx.createOscillator();
+        const gain2 = this.ctx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(freq * 1.5, now + 0.09);
+        osc2.frequency.exponentialRampToValueAtTime(freq * 1.8, now + 0.09 + duration);
+        gain2.gain.setValueAtTime(0.15, now + 0.09);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.09 + duration);
+        osc2.connect(gain2);
+        gain2.connect(this.ctx.destination);
+        osc2.start(now + 0.09);
+        osc2.stop(now + 0.09 + duration + 0.02);
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
+  // Gadget deployment futuristic power hum & release
+  playGadgetDeploy() {
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(120, now);
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.25);
+      osc.frequency.exponentialRampToValueAtTime(440, now + 0.45);
+
+      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.linearRampToValueAtTime(0.2, now + 0.2);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.52);
+    } catch {
+      // Ignore
+    }
+  }
+
+  // Biome restoration flourishing harmonic chord
+  playRestorationSuccess() {
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const freqs = [329.63, 392.00, 493.88, 659.25, 987.77, 1318.51]; // E-G-B-E-B-E major pentatonic
+
+      freqs.forEach((freq, idx) => {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.07);
+
+        gain.gain.setValueAtTime(0.12, now + idx * 0.07);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.6);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now + idx * 0.07);
+        osc.stop(now + idx * 0.07 + 0.65);
+      });
+    } catch {
+      // Ignore
+    }
   }
 }
 

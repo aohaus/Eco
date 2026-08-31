@@ -1,6 +1,6 @@
 {
   "name": "Eco with シャトミン",
-  "description": "シャトミンと一緒に楽しく学べる子ども向けエコアドベンチャーゲーム。ポケモンGO風の相棒・図鑑システムやマインクラフト風のクラフト台、脱出ゲーム、図書室を搭載。",
-  "requestFramePermissions": [],
+  "description": "シャトミンと一緒に楽しく学べる子ども向けエコアドベンチャー。リアル地球地図連動の「Eco Explorer: 地球レスキューミッション」、ポケモンGO風の相棒・図鑑、マインクラフト風クラフト台、アクションゲームを搭載。",
+  "requestFramePermissions": ["geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -16,7 +16,9 @@ import {
   ScrollText,
   Hammer,
   Gift,
-  User
+  User,
+  Radar,
+  Globe
 } from 'lucide-react';
 import { ShatominAvatar } from './ShatominAvatar';
 import { Language, translations } from '../utils/i18n';
@@ -49,9 +51,10 @@ export const Header: React.FC<HeaderProps> = ({
 
   const tabs = [
     { id: 'map', label: t.tabMap, icon: Compass, isQuestMap: true },
+    { id: 'explorer', label: language === 'ja' ? '🌍 地球レスキュー' : '🌍 Eco Explorer', icon: Radar, isExplorer: true, isNew: true },
     { id: 'buddy', label: language === 'ja' ? '相棒シャトミン' : 'Buddy', icon: Heart, isBuddy: true },
-    { id: 'dex', label: language === 'ja' ? 'エコ図鑑' : 'Eco-Dex', icon: BookOpen, isNew: true },
-    { id: 'craft', label: language === 'ja' ? 'クラフト台' : 'Crafting', icon: Hammer, isNew: true },
+    { id: 'dex', label: language === 'ja' ? 'エコ図鑑' : 'Eco-Dex', icon: BookOpen },
+    { id: 'craft', label: language === 'ja' ? 'クラフト台' : 'Crafting', icon: Hammer },
     { id: 'game', label: t.tabGame, icon: Gamepad2 },
     { id: 'library', label: t.tabLibrary, icon: Library },
     { id: 'habits', label: t.tabHabits, icon: CheckSquare },
@@ -193,6 +196,7 @@ export const Header: React.FC<HeaderProps> = ({
             const isActive = activeTab === tab.id;
             const isBuddy = tab.isBuddy;
             const isQuestMap = tab.isQuestMap;
+            const isExplorer = tab.isExplorer;
 
             return (
               <button
@@ -202,14 +206,18 @@ export const Header: React.FC<HeaderProps> = ({
                   sounds.playPop();
                   setActiveTab(tab.id);
                 }}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
                   isActive
-                    ? isQuestMap
+                    ? isExplorer
+                      ? 'bg-cyan-700 text-cyan-50 font-black shadow-xs ring-2 ring-cyan-400/50'
+                      : isQuestMap
                       ? 'bg-[#387249] text-white shadow-xs'
                       : isBuddy 
                         ? 'bg-rose-500 text-white font-black shadow-xs'
                         : 'bg-[#387249] text-white shadow-xs'
-                    : isQuestMap
+                    : isExplorer
+                      ? 'text-cyan-900 bg-cyan-50/90 hover:bg-cyan-100 border border-cyan-300 font-bold'
+                      : isQuestMap
                       ? 'bg-[#eef5ef] text-[#2c5737] hover:bg-[#dfeee1] border border-[#a8d3af]'
                       : isBuddy
                         ? 'text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200'

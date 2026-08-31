@@ -151,26 +151,26 @@ export const StartScreen: React.FC<StartScreenProps> = ({
             <button
               onClick={() => {
                 sounds.playFanfare();
-                onStartQuest('map');
+                onStartQuest('explorer');
               }}
-              id="start-quest-main-btn"
-              className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-[#387249] to-[#2d5a39] hover:from-[#2e603d] hover:to-[#22452b] text-white font-extrabold text-lg shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 group border-b-4 border-[#1e3f27]"
+              id="start-explorer-main-btn"
+              className="w-full sm:w-auto px-6 py-4 rounded-2xl bg-gradient-to-r from-cyan-600 via-teal-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white font-black text-base sm:text-lg shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 group border-b-4 border-teal-900 cursor-pointer"
             >
-              <Compass className="w-6 h-6 group-hover:rotate-45 transition-transform" />
-              <span>{t.startQuest}</span>
+              <Globe className="w-6 h-6 text-cyan-200 animate-spin [animation-duration:15s]" />
+              <span>{language === 'ja' ? '🌍 地球レスキューへ出撃！' : '🌍 Launch Earth Rescue!'}</span>
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </button>
 
             <button
               onClick={() => {
                 sounds.playPop();
-                onStartQuest('game');
+                onStartQuest('map');
               }}
-              id="quick-game-btn"
-              className="w-full sm:w-auto px-5 py-4 rounded-2xl bg-white hover:bg-stone-50 border-2 border-[#d6c7b2] text-stone-800 font-bold text-sm shadow-xs transition-all flex items-center justify-center gap-2"
+              id="start-quest-main-btn"
+              className="w-full sm:w-auto px-5 py-4 rounded-2xl bg-gradient-to-r from-[#387249] to-[#2d5a39] hover:from-[#2e603d] hover:to-[#22452b] text-white font-extrabold text-sm sm:text-base shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer border-b-4 border-[#1e3f27]"
             >
-              <Gamepad2 className="w-4 h-4 text-amber-600" />
-              <span>{language === 'ja' ? '脱出ゲームで遊ぶ' : 'Play Arcade'}</span>
+              <Compass className="w-5 h-5" />
+              <span>{t.startQuest}</span>
             </button>
           </div>
         </div>
