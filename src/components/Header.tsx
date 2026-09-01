@@ -23,6 +23,7 @@ import {
 import { ShatominAvatar } from './ShatominAvatar';
 import { Language, translations } from '../utils/i18n';
 import { sounds } from '../utils/soundEffects';
+import { HelpCircle } from 'lucide-react';
 
 interface HeaderProps {
   activeTab: string;
@@ -30,10 +31,12 @@ interface HeaderProps {
   totalPoints: number;
   currentStreak: number;
   level: number;
+  guardianLevel?: number;
   language: Language;
   onLanguageChange: (lang: Language) => void;
   onOpenRoulette?: () => void;
   onOpenTrainerCard?: () => void;
+  onOpenIntro?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -42,10 +45,12 @@ export const Header: React.FC<HeaderProps> = ({
   totalPoints,
   currentStreak,
   level,
+  guardianLevel = 1,
   language,
   onLanguageChange,
   onOpenRoulette,
   onOpenTrainerCard,
+  onOpenIntro,
 }) => {
   const t = translations[language];
 
@@ -103,11 +108,26 @@ export const Header: React.FC<HeaderProps> = ({
                 sounds.playPop();
                 setActiveTab('start');
               }}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-stone-50 border border-[#d6c7b2] text-xs font-bold text-stone-700 transition-colors shadow-2xs"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-stone-50 border border-[#d6c7b2] text-xs font-bold text-stone-700 transition-colors shadow-2xs cursor-pointer"
             >
               <Home className="w-3.5 h-3.5 text-stone-600" />
               <span>{t.titleScreen}</span>
             </button>
+
+            {/* Help / Story Intro Button */}
+            {onOpenIntro && (
+              <button
+                onClick={() => {
+                  sounds.playPop();
+                  onOpenIntro();
+                }}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-xs font-extrabold border border-emerald-300 shadow-2xs transition-transform active:translate-y-0.5 cursor-pointer"
+                title={language === 'ja' ? '遊び方とストーリーを見る' : 'How to Play & Story'}
+              >
+                <HelpCircle className="w-3.5 h-3.5 text-emerald-700" />
+                <span className="hidden md:inline">{language === 'ja' ? '遊び方' : 'Help'}</span>
+              </button>
+            )}
 
             {/* Daily Roulette Button */}
             {onOpenRoulette && (

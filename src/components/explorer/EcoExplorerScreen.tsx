@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { EarthMission, FieldIntelCard, LocalEcoMission } from '../../types/missionTypes';
 import { INITIAL_EARTH_MISSIONS, EXPLORER_RANKS } from '../../data/missionsData';
+import { ExplorerQuestGuide } from './ExplorerQuestGuide';
+import { ExplorerHowToPlayModal } from './ExplorerHowToPlayModal';
+import { EXPLORER_LEVEL_TIERS, ExplorerStepMission } from '../../data/explorerQuests';
 import { EcoRadarMap } from './EcoRadarMap';
 import { MissionBriefingCenter } from './MissionBriefingCenter';
 import { ScienceDeployStage } from './ScienceDeployStage';
@@ -18,7 +21,8 @@ import {
   MapPin,
   Compass,
   Zap,
-  Award
+  Award,
+  HelpCircle
 } from 'lucide-react';
 
 interface EcoExplorerScreenProps {
@@ -39,6 +43,47 @@ export const EcoExplorerScreen: React.FC<EcoExplorerScreenProps> = ({
   initialMissionId,
 }) => {
   const [currentView, setCurrentView] = useState<ExplorerView>('local_gps');
+
+  // Explorer Level progression state
+  const [explorerLevel, setExplorerLevel] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('eco_explorer_level_v1');
+      if (saved) return parseInt(saved, 10);
+    } catch {
+      // Ignore
+    }
+    return 1;
+  });
+
+  const [completedStepIds, setCompletedStepIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('eco_explorer_completed_steps_v1');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // Ignore
+    }
+    return [];
+  });
+
+  const [claimedStepIds, setClaimedStepIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('eco_explorer_claimed_steps_v1');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // Ignore
+    }
+    return [];
+  });
+
+  // How to play modal
+  const [isHowToPlayOpen, setIsHowToPlayOpen] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('eco_explorer_has_seen_intro') !== 'true';
+    } catch {
+      return false;
+    }
+  });
+
   const [missions, setMissions] = useState<EarthMission[]>(() => {
     try {
       const saved = localStorage.getItem('eco_explorer_missions_v1');
@@ -86,6 +131,31 @@ export const EcoExplorerScreen: React.FC<EcoExplorerScreenProps> = ({
   const [activeLocalMission, setActiveLocalMission] = useState<LocalEcoMission | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Sync to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('eco_explorer_level_v1', explorerLevel.toString());
+    } catch {
+      // Ignore
+    }
+  }, [explorerLevel]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('eco_explorer_completed_steps_v1', JSON.stringify(completedStepIds));
+    } catch {
+      // Ignore
+    }
+  }, [completedStepIds]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('eco_explorer_claimed_steps_v1', JSON.stringify(claimedStepIds));
+    } catch {
+      // Ignore
+    }
+  }, [claimedStepIds]);
+
   // Save missions to localStorage
   useEffect(() => {
     try {
@@ -121,6 +191,86 @@ export const EcoExplorerScreen: React.FC<EcoExplorerScreenProps> = ({
     setTimeout(() => {
       setToastMessage(null);
     }, 4000);
+  };
+
+  // Evaluate step completions dynamically
+  useEffect(() => {
+    const toComplete: string[] = [];
+
+    // Lv.1 Steps
+    if (completedLocalIds.size > 0) toComplete.push('exp-lv1-1');
+    if (missions.some((m) => m.id === 'mission_coral_reef' && m.isCompleted)) toComplete.push('exp-lv1-2');
+    if (unlockedIntel.length > 0) toComplete.push('exp-lv1-3');
+
+    // Lv.2 Steps
+    if (missions.some((m) => m.id === 'mission_amazon_reforest' && m.isCompleted)) toComplete.push('exp-lv2-1');
+    if (missions.some((m) => m.id === 'mission_arctic_ice' && m.isCompleted)) toComplete.push('exp-lv2-2');
+    if (completedLocalIds.size >= 2) toComplete.push('exp-lv2-3');
+
+    // Lv.3 Steps
+    if (missions.some((m) => m.id === 'mission_pacific_patch' && m.isCompleted)) toComplete.push('exp-lv3-1');
+    if (missions.some((m) => m.id === 'mission_sahel_greenwall' && m.isCompleted)) toComplete.push('exp-lv3-2');
+    if (missions.some((m) => m.id === 'mission_galapagos_guard' && m.isCompleted)) toComplete.push('exp-lv3-3');
+
+    // Lv.4 Steps
+    if (missions.filter((m) => m.isCompleted).length >= 6) toComplete.push('exp-lv4-1');
+    if (unlockedIntel.length >= 6) toComplete.push('exp-lv4-2');
+    if (completedLocalIds.size >= 4) toComplete.push('exp-lv4-3');
+
+    if (toComplete.length > 0) {
+      setCompletedStepIds((prev) => {
+        const newOnes = toComplete.filter((id) => !prev.includes(id));
+        if (newOnes.length > 0) {
+          return [...prev, ...newOnes];
+        }
+        return prev;
+      });
+    }
+  }, [missions, completedLocalIds, unlockedIntel]);
+
+  const handleClaimStepMission = (step: ExplorerStepMission) => {
+    if (claimedStepIds.includes(step.id)) return;
+
+    setClaimedStepIds((prev) => [...prev, step.id]);
+    onAddPoints(step.rewardPoints);
+    if (onAddExp) {
+      onAddExp(step.rewardExp);
+    }
+
+    showToast(
+      language === 'ja'
+        ? `✨ 目標達成！ +${step.rewardPoints}pt & +${step.rewardExp}EXP 獲得！`
+        : `✨ Objective Cleared! +${step.rewardPoints} Eco-Points & +${step.rewardExp} EXP!`
+    );
+
+    // Check if level should advance
+    const currentTier = EXPLORER_LEVEL_TIERS.find((t) => t.level === explorerLevel);
+    if (currentTier) {
+      const nextClaimed = [...claimedStepIds, step.id];
+      const allTierClaimed = currentTier.missions.every((m) => nextClaimed.includes(m.id));
+      if (allTierClaimed && explorerLevel < EXPLORER_LEVEL_TIERS.length) {
+        setExplorerLevel((prev) => prev + 1);
+        sounds.playFanfare();
+        showToast(
+          language === 'ja'
+            ? `🎉 エクスプローラー昇格！ Lv.${explorerLevel + 1} の新ミッション開放！`
+            : `🎉 Explorer Promotion! Unlocked Lv.${explorerLevel + 1} Missions!`
+        );
+      }
+    }
+  };
+
+  const handleNavigateFromGuide = (
+    view: 'local_gps' | 'global_radar' | 'briefing' | 'deploy' | 'logbook',
+    targetMissionId?: string
+  ) => {
+    if (targetMissionId) {
+      const found = missions.find((m) => m.id === targetMissionId);
+      if (found) {
+        setSelectedMission(found);
+      }
+    }
+    setCurrentView(view);
   };
 
   const handleCompleteGlobalMission = (
@@ -197,6 +347,29 @@ export const EcoExplorerScreen: React.FC<EcoExplorerScreenProps> = ({
           <span>{toastMessage}</span>
         </div>
       )}
+
+      {/* How to play modal */}
+      <ExplorerHowToPlayModal
+        isOpen={isHowToPlayOpen}
+        onClose={() => {
+          setIsHowToPlayOpen(false);
+          try {
+            localStorage.setItem('eco_explorer_has_seen_intro', 'true');
+          } catch {
+            // Ignore
+          }
+        }}
+        language={language}
+        onStartFirstQuest={() => {
+          setIsHowToPlayOpen(false);
+          try {
+            localStorage.setItem('eco_explorer_has_seen_intro', 'true');
+          } catch {
+            // Ignore
+          }
+          setCurrentView('local_gps');
+        }}
+      />
 
       {/* Local Mission Active Modal */}
       {activeLocalMission && (
@@ -314,6 +487,17 @@ export const EcoExplorerScreen: React.FC<EcoExplorerScreenProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Explorer Level Roadmap & Step-by-Step Quests Guide */}
+      <ExplorerQuestGuide
+        language={language}
+        currentLevel={explorerLevel}
+        completedMissionIds={completedStepIds}
+        claimedMissionIds={claimedStepIds}
+        onClaimMission={handleClaimStepMission}
+        onNavigateToView={handleNavigateFromGuide}
+        onOpenHowToPlayModal={() => setIsHowToPlayOpen(true)}
+      />
 
       {/* Main View Renderer */}
       {currentView === 'local_gps' && (

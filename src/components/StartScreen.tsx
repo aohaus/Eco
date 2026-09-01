@@ -26,6 +26,10 @@ interface StartScreenProps {
   onStartQuest: (targetTab?: string) => void;
   totalPoints: number;
   streak: number;
+  guardianLevel?: number;
+  activeMissionTitle?: string;
+  activeMissionTab?: string;
+  onOpenIntro?: () => void;
 }
 
 export const StartScreen: React.FC<StartScreenProps> = ({
@@ -34,6 +38,10 @@ export const StartScreen: React.FC<StartScreenProps> = ({
   onStartQuest,
   totalPoints,
   streak,
+  guardianLevel = 1,
+  activeMissionTitle,
+  activeMissionTab,
+  onOpenIntro,
 }) => {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const t = translations[language];
@@ -67,10 +75,26 @@ export const StartScreen: React.FC<StartScreenProps> = ({
       
       {/* Top Utility Bar (Language Selector & Sound Switch) */}
       <div className="relative z-10 flex items-center justify-between gap-3 border-b border-[#e5dac9] pb-4">
-        {/* Earth Badge */}
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#f4ebe1] border border-[#d6c7b2] text-xs font-bold text-[#4a5d4e]">
-          <Leaf className="w-3.5 h-3.5 text-[#387249]" />
-          <span>EARTH-FRIENDLY RPG</span>
+        {/* Earth Badge & How to play */}
+        <div className="flex items-center gap-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#f4ebe1] border border-[#d6c7b2] text-xs font-bold text-[#4a5d4e]">
+            <Leaf className="w-3.5 h-3.5 text-[#387249]" />
+            <span>EARTH-FRIENDLY RPG</span>
+          </div>
+
+          {onOpenIntro && (
+            <button
+              onClick={() => {
+                sounds.playPop();
+                onOpenIntro();
+              }}
+              id="open-story-intro-btn"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 hover:bg-amber-200 border border-amber-300 text-xs font-black text-amber-900 shadow-2xs transition-all cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-600 animate-spin [animation-duration:10s]" />
+              <span>{language === 'ja' ? '❓ このゲームについて・遊び方' : '❓ Story & How to Play'}</span>
+            </button>
+          )}
         </div>
 
         {/* Action Controls */}
@@ -151,28 +175,56 @@ export const StartScreen: React.FC<StartScreenProps> = ({
             <button
               onClick={() => {
                 sounds.playFanfare();
-                onStartQuest('explorer');
+                onStartQuest('map');
               }}
-              id="start-explorer-main-btn"
-              className="w-full sm:w-auto px-6 py-4 rounded-2xl bg-gradient-to-r from-cyan-600 via-teal-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white font-black text-base sm:text-lg shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 group border-b-4 border-teal-900 cursor-pointer"
+              id="start-quest-main-btn"
+              className="w-full sm:w-auto px-6 py-4 rounded-2xl bg-gradient-to-r from-[#387249] via-[#2d5a39] to-[#1e3f27] hover:from-[#2e603d] hover:to-[#22452b] text-white font-black text-base sm:text-lg shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer border-b-4 border-[#142c1b]"
             >
-              <Globe className="w-6 h-6 text-cyan-200 animate-spin [animation-duration:15s]" />
-              <span>{language === 'ja' ? '🌍 地球レスキューへ出撃！' : '🌍 Launch Earth Rescue!'}</span>
+              <Compass className="w-6 h-6 text-emerald-200" />
+              <span>{language === 'ja' ? `🎯 Lv.${guardianLevel} クエストを進める！` : `🎯 Start Lv.${guardianLevel} Quests!`}</span>
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </button>
 
             <button
               onClick={() => {
                 sounds.playPop();
-                onStartQuest('map');
+                onStartQuest('explorer');
               }}
-              id="start-quest-main-btn"
-              className="w-full sm:w-auto px-5 py-4 rounded-2xl bg-gradient-to-r from-[#387249] to-[#2d5a39] hover:from-[#2e603d] hover:to-[#22452b] text-white font-extrabold text-sm sm:text-base shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer border-b-4 border-[#1e3f27]"
+              id="start-explorer-main-btn"
+              className="w-full sm:w-auto px-5 py-4 rounded-2xl bg-gradient-to-r from-cyan-600 via-teal-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white font-extrabold text-sm sm:text-base shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 group border-b-4 border-teal-900 cursor-pointer"
             >
-              <Compass className="w-5 h-5" />
-              <span>{t.startQuest}</span>
+              <Globe className="w-5 h-5 text-cyan-200 animate-spin [animation-duration:15s]" />
+              <span>{language === 'ja' ? '🌍 地球レスキュー' : '🌍 Earth Rescue'}</span>
             </button>
           </div>
+
+          {/* Active Mission Quick Hint */}
+          {activeMissionTitle && (
+            <div 
+              onClick={() => {
+                sounds.playPop();
+                onStartQuest(activeMissionTab || 'map');
+              }}
+              className="mt-2 p-3 bg-amber-50/90 hover:bg-amber-100/90 border border-amber-300 rounded-2xl flex items-center justify-between gap-3 cursor-pointer shadow-2xs transition-all text-left"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-xs shrink-0">
+                  Lv.{guardianLevel}
+                </div>
+                <div>
+                  <div className="text-[10px] font-extrabold text-amber-900 uppercase">
+                    {language === 'ja' ? '現在のガーディアン指令' : 'Current Active Objective'}
+                  </div>
+                  <div className="text-xs sm:text-sm font-bold text-stone-900 line-clamp-1">
+                    {activeMissionTitle}
+                  </div>
+                </div>
+              </div>
+              <span className="shrink-0 text-xs font-black text-[#387249] bg-white px-2.5 py-1 rounded-lg border border-amber-200">
+                {language === 'ja' ? '今すぐ挑戦 ❯' : 'Start Task ❯'}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Right Side: Interactive Mascot & Player Status Card */}

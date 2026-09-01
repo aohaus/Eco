@@ -26,6 +26,8 @@ import {
   Zap
 } from 'lucide-react';
 import { ShatominPlush } from './ShatominPlush';
+import { GuardianQuestBoard } from './GuardianQuestBoard';
+import { GuardianMission } from '../data/guardianQuests';
 import { Language, translations } from '../utils/i18n';
 import { sounds } from '../utils/soundEffects';
 
@@ -35,6 +37,12 @@ interface WorldMapScreenProps {
   totalPoints: number;
   streak: number;
   onAddPoints: (pts: number) => void;
+  guardianLevel?: number;
+  completedMissionIds?: string[];
+  claimedMissionIds?: string[];
+  onCompleteMission?: (missionId: string) => void;
+  onClaimMission?: (mission: GuardianMission) => void;
+  onOpenIntro?: () => void;
   onOpenRoulette?: () => void;
   onOpenTrainerCard?: () => void;
 }
@@ -45,6 +53,12 @@ export const WorldMapScreen: React.FC<WorldMapScreenProps> = ({
   totalPoints,
   streak,
   onAddPoints,
+  guardianLevel = 1,
+  completedMissionIds = [],
+  claimedMissionIds = [],
+  onCompleteMission = () => {},
+  onClaimMission = () => {},
+  onOpenIntro,
   onOpenRoulette,
   onOpenTrainerCard,
 }) => {
@@ -278,153 +292,17 @@ export const WorldMapScreen: React.FC<WorldMapScreenProps> = ({
         </div>
       </div>
 
-      {/* Daily Quests / Mission Board */}
-      <div className="bg-[#fcfaf5] rounded-3xl p-6 border-2 border-[#e6dbc8] shadow-xs space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-800">
-              <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
-            </div>
-            <div>
-              <h2 className="text-base font-extrabold text-stone-900">
-                {t.dailyQuests}
-              </h2>
-              <p className="text-xs text-stone-500">
-                {language === 'ja' ? '毎日の冒険ミッションをクリアしてボーナスEXPをゲット！' : 'Complete daily missions for bonus EXP and eco rewards!'}
-              </p>
-            </div>
-          </div>
-
-          <span className="text-xs font-bold px-3 py-1 rounded-full bg-[#387249]/10 text-[#387249]">
-            {language === 'ja' ? '毎日リセット' : 'Resets Daily'}
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {/* Quest 1 */}
-          <div className="bg-white rounded-2xl p-4 border border-[#e6dbc8] flex flex-col justify-between gap-3">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                  QUEST 1
-                </span>
-                <span className="text-xs font-black text-amber-700">+40 EXP</span>
-              </div>
-              <h3 className="text-xs font-bold text-stone-900">{t.quest1Title}</h3>
-              <p className="text-[11px] text-stone-500 leading-tight mt-0.5">{t.quest1Desc}</p>
-            </div>
-
-            <button
-              onClick={() => {
-                if (!quest1Claimed) {
-                  handleClaimQuest(1, 40);
-                } else {
-                  onNavigate('library');
-                }
-              }}
-              className={`w-full py-2 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 ${
-                quest1Claimed
-                  ? 'bg-stone-100 text-stone-500 border border-stone-200'
-                  : 'bg-[#387249] hover:bg-[#2e603d] text-white shadow-xs'
-              }`}
-            >
-              {quest1Claimed ? (
-                <>
-                  <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>{t.rewardClaimed}</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                  <span>{t.claimReward}</span>
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Quest 2 */}
-          <div className="bg-white rounded-2xl p-4 border border-[#e6dbc8] flex flex-col justify-between gap-3">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">
-                  QUEST 2
-                </span>
-                <span className="text-xs font-black text-amber-700">+50 EXP</span>
-              </div>
-              <h3 className="text-xs font-bold text-stone-900">{t.quest2Title}</h3>
-              <p className="text-[11px] text-stone-500 leading-tight mt-0.5">{t.quest2Desc}</p>
-            </div>
-
-            <button
-              onClick={() => {
-                if (!quest2Claimed) {
-                  handleClaimQuest(2, 50);
-                } else {
-                  onNavigate('game');
-                }
-              }}
-              className={`w-full py-2 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 ${
-                quest2Claimed
-                  ? 'bg-stone-100 text-stone-500 border border-stone-200'
-                  : 'bg-amber-600 hover:bg-amber-700 text-white shadow-xs'
-              }`}
-            >
-              {quest2Claimed ? (
-                <>
-                  <CheckCircle className="w-3.5 h-3.5 text-amber-600" />
-                  <span>{t.rewardClaimed}</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-3.5 h-3.5 text-amber-200" />
-                  <span>{t.claimReward}</span>
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Quest 3 */}
-          <div className="bg-white rounded-2xl p-4 border border-[#e6dbc8] flex flex-col justify-between gap-3">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-teal-100 text-teal-800">
-                  QUEST 3
-                </span>
-                <span className="text-xs font-black text-amber-700">+30 EXP</span>
-              </div>
-              <h3 className="text-xs font-bold text-stone-900">{t.quest3Title}</h3>
-              <p className="text-[11px] text-stone-500 leading-tight mt-0.5">{t.quest3Desc}</p>
-            </div>
-
-            <button
-              onClick={() => {
-                if (!quest3Claimed) {
-                  handleClaimQuest(3, 30);
-                } else {
-                  onNavigate('habits');
-                }
-              }}
-              className={`w-full py-2 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 ${
-                quest3Claimed
-                  ? 'bg-stone-100 text-stone-500 border border-stone-200'
-                  : 'bg-teal-700 hover:bg-teal-800 text-white shadow-xs'
-              }`}
-            >
-              {quest3Claimed ? (
-                <>
-                  <CheckCircle className="w-3.5 h-3.5 text-teal-600" />
-                  <span>{t.rewardClaimed}</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-3.5 h-3.5 text-amber-200" />
-                  <span>{t.claimReward}</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* Guardian Quest Progression Board */}
+      <GuardianQuestBoard
+        language={language}
+        guardianLevel={guardianLevel}
+        completedMissionIds={completedMissionIds}
+        claimedMissionIds={claimedMissionIds}
+        onCompleteMission={onCompleteMission}
+        onClaimMission={onClaimMission}
+        onNavigateToTab={onNavigate}
+        onOpenIntro={onOpenIntro}
+      />
 
       {/* World Map Area Grid */}
       <div className="space-y-4">
