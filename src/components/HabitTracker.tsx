@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
 import { 
-  CheckCircle2, 
-  Circle, 
+  Check, 
   Plus, 
   Flame, 
-  Leaf, 
   Droplets, 
-  Trash2, 
   Zap, 
+  Car, 
+  Utensils, 
+  ShoppingBag, 
+  Sparkles,
   X,
-  Filter
+  CheckCircle2,
+  BookmarkPlus
 } from 'lucide-react';
 import { EcoHabit, EcoCategory } from '../types';
+import { sounds } from '../utils/soundEffects';
+import confetti from 'canvas-confetti';
 
 interface HabitTrackerProps {
   habits: EcoHabit[];
@@ -20,6 +24,146 @@ interface HabitTrackerProps {
   todayDate: string;
 }
 
+// 100% Touch-First: Preset Catalog of Realistic Daily Eco Habits
+interface PresetHabit {
+  title: string;
+  category: EcoCategory;
+  description: string;
+  emoji: string;
+  co2SavingsKg: number;
+  waterSavingsLiters: number;
+  wasteSavedKg: number;
+  energySavedKwh: number;
+  points: number;
+}
+
+const PRESET_HABIT_CATALOG: PresetHabit[] = [
+  // Water
+  {
+    title: 'マイボトルを持参して出かける',
+    category: 'water',
+    description: 'ペットボトルを買わずに、お気に入りの水筒やタンブラーで水分補給',
+    emoji: '💧',
+    co2SavingsKg: 0.3,
+    waterSavingsLiters: 15,
+    wasteSavedKg: 0.05,
+    energySavedKwh: 0,
+    points: 20,
+  },
+  {
+    title: 'シャワー時間を3分短縮する',
+    category: 'water',
+    description: '出しっぱなしを防いで、大切な水資源と給湯エネルギーを節約',
+    emoji: '🚿',
+    co2SavingsKg: 0.5,
+    waterSavingsLiters: 36,
+    wasteSavedKg: 0,
+    energySavedKwh: 1.2,
+    points: 25,
+  },
+  // Energy
+  {
+    title: '使っていない部屋の照明・主電源オフ',
+    category: 'energy',
+    description: 'こまめな消灯と待機電力カットで、無駄な電気消費をストップ',
+    emoji: '💡',
+    co2SavingsKg: 0.4,
+    waterSavingsLiters: 0,
+    wasteSavedKg: 0,
+    energySavedKwh: 0.8,
+    points: 20,
+  },
+  {
+    title: 'エアコンを1℃控えめに調整する',
+    category: 'energy',
+    description: '夏は28℃、冬は20℃を目安に設定し、サーキュレーターや衣類で快適に',
+    emoji: '🍃',
+    co2SavingsKg: 0.6,
+    waterSavingsLiters: 0,
+    wasteSavedKg: 0,
+    energySavedKwh: 1.5,
+    points: 25,
+  },
+  // Transport
+  {
+    title: 'エレベーターの代わりに階段を使う',
+    category: 'transport',
+    description: '健康にも地球にも優しい！3階以内なら階段を使って電気を節約',
+    emoji: '🪜',
+    co2SavingsKg: 0.2,
+    waterSavingsLiters: 0,
+    wasteSavedKg: 0,
+    energySavedKwh: 0.3,
+    points: 20,
+  },
+  {
+    title: '車を使わず徒歩・自転車で移動する',
+    category: 'transport',
+    description: '近所のお買い物や移動は、クリーンなペダルと足腰を使ってゼロエミッション',
+    emoji: '🚲',
+    co2SavingsKg: 1.2,
+    waterSavingsLiters: 0,
+    wasteSavedKg: 0,
+    energySavedKwh: 0,
+    points: 30,
+  },
+  // Food
+  {
+    title: 'ご飯を残さず美味しく完食（食品ロスゼロ）',
+    category: 'food',
+    description: '食べ切れる量だけ取り分けて、生ごみと廃棄エネルギーを削減',
+    emoji: '🍱',
+    co2SavingsKg: 0.8,
+    waterSavingsLiters: 50,
+    wasteSavedKg: 0.3,
+    energySavedKwh: 0.2,
+    points: 25,
+  },
+  {
+    title: '地元産（地産地消）の旬の野菜・食材を選ぶ',
+    category: 'food',
+    description: '長距離輸送（フードマイレージ）を減らし、地域の新鮮な恵みを応援',
+    emoji: '🥬',
+    co2SavingsKg: 0.5,
+    waterSavingsLiters: 10,
+    wasteSavedKg: 0,
+    energySavedKwh: 0.5,
+    points: 20,
+  },
+  // Consumption & Waste
+  {
+    title: 'マイバッグを持参しレジ袋を辞退する',
+    category: 'consumption',
+    description: '使い捨てプラスチックを断り、持続可能なエコショッピングを実践',
+    emoji: '🛍️',
+    co2SavingsKg: 0.1,
+    waterSavingsLiters: 0,
+    wasteSavedKg: 0.02,
+    energySavedKwh: 0,
+    points: 15,
+  },
+  {
+    title: 'プラスチックと資源ごみをしっかり分別する',
+    category: 'consumption',
+    description: '軽くすすいで資源としてリサイクルステーションへ届ける',
+    emoji: '♻️',
+    co2SavingsKg: 0.4,
+    waterSavingsLiters: 0,
+    wasteSavedKg: 0.4,
+    energySavedKwh: 0.3,
+    points: 20,
+  },
+];
+
+const CATEGORY_TABS: { id: string; label: string; icon: string }[] = [
+  { id: 'all', label: 'すべて', icon: '✨' },
+  { id: 'water', label: '水・給湯', icon: '💧' },
+  { id: 'energy', label: 'エネルギー', icon: '⚡' },
+  { id: 'transport', label: '移動・階段', icon: '🚲' },
+  { id: 'food', label: '食事・ロス', icon: '🥗' },
+  { id: 'consumption', label: 'ごみ・分別', icon: '🛍️' },
+];
+
 export const HabitTracker: React.FC<HabitTrackerProps> = ({
   habits,
   onToggleHabit,
@@ -27,298 +171,289 @@ export const HabitTracker: React.FC<HabitTrackerProps> = ({
   todayDate,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [showCatalogModal, setShowCatalogModal] = useState(false);
+  const [catalogCategory, setCatalogCategory] = useState<string>('all');
 
-  // New habit form state
-  const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<EcoCategory>('transport');
-  const [description, setDescription] = useState('');
-  const [co2SavingsKg, setCo2SavingsKg] = useState('1.5');
-  const [waterSavingsLiters, setWaterSavingsLiters] = useState('0');
-  const [wasteSavedKg, setWasteSavedKg] = useState('0');
-  const [energySavedKwh, setEnergySavedKwh] = useState('0');
+  const completedTodayCount = habits.filter((h) => h.completedDates.includes(todayDate)).length;
+  const totalHabitsCount = habits.length;
+
+  const handleToggle = (id: string, isCompleted: boolean) => {
+    sounds.playPop();
+    if (!isCompleted) {
+      confetti({
+        particleCount: 30,
+        spread: 50,
+        origin: { y: 0.75 },
+      });
+    }
+    onToggleHabit(id);
+  };
+
+  // 100% Touch-First: Add preset with a single tap
+  const handleSelectPreset = (preset: PresetHabit) => {
+    sounds.playFanfare();
+    confetti({
+      particleCount: 25,
+      spread: 45,
+      origin: { y: 0.6 },
+    });
+
+    onAddHabit({
+      title: preset.title,
+      category: preset.category,
+      description: preset.description,
+      co2SavingsKg: preset.co2SavingsKg,
+      waterSavingsLiters: preset.waterSavingsLiters,
+      wasteSavedKg: preset.wasteSavedKg,
+      energySavedKwh: preset.energySavedKwh,
+      points: preset.points,
+    });
+  };
 
   const filteredHabits = selectedCategory === 'all'
     ? habits
-    : habits.filter(h => h.category === selectedCategory);
+    : habits.filter((h) => h.category === selectedCategory);
 
-  const handleCreateHabit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) return;
-
-    onAddHabit({
-      title: title.trim(),
-      category,
-      description: description.trim() || 'Custom sustainable daily habit',
-      co2SavingsKg: parseFloat(co2SavingsKg) || 0.5,
-      waterSavingsLiters: parseFloat(waterSavingsLiters) || 0,
-      wasteSavedKg: parseFloat(wasteSavedKg) || 0,
-      energySavedKwh: parseFloat(energySavedKwh) || 0,
-      points: 20,
-    });
-
-    setTitle('');
-    setDescription('');
-    setShowAddModal(false);
-  };
-
-  const categories = [
-    { id: 'all', label: 'All Habits' },
-    { id: 'transport', label: 'Transport' },
-    { id: 'food', label: 'Food & Diet' },
-    { id: 'energy', label: 'Energy' },
-    { id: 'water', label: 'Water' },
-    { id: 'consumption', label: 'Consumption' },
-  ];
+  const filteredCatalog = catalogCategory === 'all'
+    ? PRESET_HABIT_CATALOG
+    : PRESET_HABIT_CATALOG.filter((p) => p.category === catalogCategory);
 
   return (
-    <div className="space-y-6">
-      {/* Top Banner & Action */}
-      <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 select-none font-sans">
+      {/* Top Header & Overview */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2 border-b border-[#E8E1D2]/80">
         <div>
-          <h1 className="text-2xl font-bold text-stone-900">Eco Action & Habit Tracker</h1>
-          <p className="text-sm text-stone-600 mt-1">
-            Build sustainable daily routines, track your consistency streaks, and quantify your positive impact.
+          <h1 className="text-3xl sm:text-4xl font-black text-stone-900 tracking-tight">
+            Daily Habits
+          </h1>
+          <p className="text-sm sm:text-base text-stone-600 font-normal mt-1">
+            キーボード入力ゼロ！毎日のエコ習慣をワンタップで記録しましょう。
           </p>
         </div>
 
-        <button
-          id="add-custom-habit-btn"
-          onClick={() => setShowAddModal(true)}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm transition-all shadow-xs cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Eco Action</span>
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Progress Badge */}
+          <div className="bg-[#FAF7F0] border border-[#E7E0D2] px-3.5 py-2 rounded-2xl flex items-center gap-2 text-xs font-bold text-stone-700">
+            <span className="w-2 h-2 rounded-full bg-[#275236]" />
+            <span>
+              {completedTodayCount} / {totalHabitsCount} 完了
+            </span>
+          </div>
+
+          {/* Add Habit CTA (Opens Touch-First Catalog) */}
+          <button
+            onClick={() => {
+              sounds.playPop();
+              setShowCatalogModal(true);
+            }}
+            className="min-h-[42px] px-4 py-2 rounded-2xl bg-[#275236] hover:bg-[#1E432B] active:scale-95 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+          >
+            <BookmarkPlus className="w-4 h-4" />
+            <span>習慣カタログから追加</span>
+          </button>
+        </div>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex items-center space-x-2 overflow-x-auto pb-2 scrollbar-none">
-        <div className="flex items-center text-xs font-semibold text-stone-600 mr-2 shrink-0">
-          <Filter className="w-3.5 h-3.5 mr-1" />
-          Filter:
-        </div>
-        {categories.map((cat) => (
+      {/* Category Filter Pills */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+        {CATEGORY_TABS.map((cat) => (
           <button
             key={cat.id}
-            id={`filter-cat-${cat.id}`}
-            onClick={() => setSelectedCategory(cat.id)}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+            onClick={() => {
+              sounds.playPop();
+              setSelectedCategory(cat.id);
+            }}
+            className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border cursor-pointer flex items-center gap-1.5 ${
               selectedCategory === cat.id
-                ? 'bg-emerald-800 text-white'
-                : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-50'
+                ? 'bg-[#275236] text-white border-[#275236] shadow-xs'
+                : 'bg-white text-stone-700 border-[#E7E0D2] hover:bg-[#F4EFE6]'
             }`}
           >
-            {cat.label}
+            <span>{cat.icon}</span>
+            <span>{cat.label}</span>
           </button>
         ))}
       </div>
 
-      {/* Habits Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Habit Cards List (100% Touch-Friendly Targets) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
         {filteredHabits.map((habit) => {
           const isDone = habit.completedDates.includes(todayDate);
+
           return (
             <div
               key={habit.id}
-              id={`habit-card-${habit.id}`}
-              className={`p-5 rounded-2xl border transition-all flex flex-col justify-between ${
+              onClick={() => handleToggle(habit.id, isDone)}
+              className={`group flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer select-none ${
                 isDone
-                  ? 'bg-emerald-50/50 border-emerald-300 shadow-xs'
-                  : 'bg-white border-stone-200 shadow-xs hover:border-stone-300'
+                  ? 'bg-[#EBF3ED] border-[#387249] shadow-xs'
+                  : 'bg-[#FCFAF5] hover:bg-white border-[#E7E0D2] hover:border-[#387249]/40'
               }`}
             >
-              <div>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start space-x-3">
-                    <button
-                      id={`check-habit-${habit.id}`}
-                      onClick={() => onToggleHabit(habit.id)}
-                      className="mt-0.5 text-emerald-600 focus:outline-hidden cursor-pointer"
-                    >
-                      {isDone ? (
-                        <CheckCircle2 className="w-6 h-6 text-emerald-600 fill-emerald-100" />
-                      ) : (
-                        <Circle className="w-6 h-6 text-stone-300 hover:text-stone-400" />
-                      )}
-                    </button>
-                    <div>
-                      <h2 className={`text-base font-bold ${isDone ? 'line-through text-stone-500' : 'text-stone-900'}`}>
-                        {habit.title}
-                      </h2>
-                      <p className="text-xs text-stone-500 mt-0.5">{habit.description}</p>
-                    </div>
-                  </div>
-
-                  {/* Category Pill */}
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-stone-100 text-stone-600 shrink-0">
-                    {habit.category}
-                  </span>
+              <div className="flex items-center gap-3.5">
+                {/* Category Icon */}
+                <div
+                  className={`w-11 h-11 rounded-xl flex items-center justify-center transition-colors shrink-0 ${
+                    isDone
+                      ? 'bg-[#275236] text-white'
+                      : 'bg-[#F2ECE1] text-[#275236]'
+                  }`}
+                >
+                  {habit.category === 'water' && <Droplets className="w-5 h-5" />}
+                  {habit.category === 'energy' && <Zap className="w-5 h-5" />}
+                  {habit.category === 'transport' && <Car className="w-5 h-5" />}
+                  {habit.category === 'food' && <Utensils className="w-5 h-5" />}
+                  {habit.category === 'consumption' && <ShoppingBag className="w-5 h-5" />}
                 </div>
 
-                {/* Metrics Breakdown */}
-                <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-stone-100 text-xs">
-                  {habit.co2SavingsKg > 0 && (
-                    <span className="inline-flex items-center gap-1 text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md font-medium">
-                      <Leaf className="w-3 h-3 text-emerald-600" />
-                      {habit.co2SavingsKg} kg CO₂
-                    </span>
-                  )}
-                  {habit.waterSavingsLiters > 0 && (
-                    <span className="inline-flex items-center gap-1 text-sky-800 bg-sky-100 px-2 py-0.5 rounded-md font-medium">
-                      <Droplets className="w-3 h-3 text-sky-600" />
-                      {habit.waterSavingsLiters} L water
-                    </span>
-                  )}
-                  {habit.wasteSavedKg > 0 && (
-                    <span className="inline-flex items-center gap-1 text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md font-medium">
-                      <Trash2 className="w-3 h-3 text-amber-600" />
-                      {habit.wasteSavedKg} kg waste
-                    </span>
-                  )}
-                  {habit.energySavedKwh > 0 && (
-                    <span className="inline-flex items-center gap-1 text-violet-800 bg-violet-100 px-2 py-0.5 rounded-md font-medium">
-                      <Zap className="w-3 h-3 text-violet-600" />
-                      {habit.energySavedKwh} kWh
-                    </span>
-                  )}
+                {/* Habit Details */}
+                <div>
+                  <h3
+                    className={`text-sm sm:text-base font-bold tracking-tight ${
+                      isDone ? 'text-stone-900 line-through opacity-80' : 'text-stone-900'
+                    }`}
+                  >
+                    {habit.title}
+                  </h3>
+                  <div className="flex items-center gap-2 mt-0.5 text-[11px] font-medium text-stone-500">
+                    <span className="font-mono font-bold text-[#275236]">+{habit.points} pts</span>
+                    <span>•</span>
+                    <span>-{habit.co2SavingsKg} kg CO₂</span>
+                    {habit.streak > 0 && (
+                      <>
+                        <span>•</span>
+                        <span className="flex items-center gap-0.5 font-bold text-amber-700">
+                          <Flame className="w-3 h-3 fill-amber-500 text-amber-500" />
+                          {habit.streak}日連続
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Bottom Card Footer */}
-              <div className="flex items-center justify-between mt-4 pt-3 border-t border-stone-100 text-xs text-stone-500">
-                <div className="flex items-center gap-1 font-semibold text-amber-600">
-                  <Flame className="w-3.5 h-3.5" />
-                  <span>Streak: {habit.streak} days</span>
-                </div>
-
-                <div className="font-medium">
-                  Completed {habit.completedDates.length} times
-                </div>
+              {/* Check Action Button */}
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all shrink-0 ${
+                  isDone
+                    ? 'bg-[#275236] text-white shadow-xs'
+                    : 'border-2 border-[#DCD5C5] text-transparent group-hover:border-[#275236]'
+                }`}
+              >
+                <Check className="w-4 h-4 stroke-[3]" />
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Add Custom Habit Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/50 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 border border-stone-200 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-              <h2 className="text-lg font-bold text-stone-900">Create Custom Eco Action</h2>
+      {/* Touch-First Eco Action Catalog Modal (Zero Keyboard!) */}
+      {showCatalogModal && (
+        <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FAF7F0] border border-[#E7E0D2] rounded-3xl p-6 max-w-2xl w-full shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-2 border-b border-[#E7E0D2]">
+              <div>
+                <h2 className="text-xl font-black text-stone-900 flex items-center gap-2">
+                  <span>🌿</span>
+                  <span>エコ習慣カタログ</span>
+                </h2>
+                <p className="text-xs text-stone-600 mt-0.5">
+                  気になるアクションをタップするだけで、マイ習慣に追加されます。
+                </p>
+              </div>
               <button
-                onClick={() => setShowAddModal(false)}
-                className="text-stone-400 hover:text-stone-600 p-1 rounded-lg"
+                onClick={() => setShowCatalogModal(false)}
+                className="w-8 h-8 rounded-full bg-white border border-[#E7E0D2] flex items-center justify-center text-stone-500 hover:text-stone-900 cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateHabit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">Action Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g., Used reusable produce mesh bags"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
-                />
-              </div>
+            {/* Catalog Filter Tabs */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar shrink-0">
+              {CATEGORY_TABS.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => {
+                    sounds.playPop();
+                    setCatalogCategory(cat.id);
+                  }}
+                  className={`min-h-[34px] px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition-all border cursor-pointer flex items-center gap-1.5 ${
+                    catalogCategory === cat.id
+                      ? 'bg-[#275236] text-white border-[#275236]'
+                      : 'bg-white text-stone-700 border-[#E7E0D2]'
+                  }`}
+                >
+                  <span>{cat.icon}</span>
+                  <span>{cat.label}</span>
+                </button>
+              ))}
+            </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 mb-1">Category</label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value as EcoCategory)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-hidden bg-white"
+            {/* Preset Cards Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto pr-1 flex-1 py-1">
+              {filteredCatalog.map((preset, idx) => {
+                const alreadyAdded = habits.some((h) => h.title === preset.title);
+
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      if (!alreadyAdded) {
+                        handleSelectPreset(preset);
+                      }
+                    }}
+                    className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-2 select-none ${
+                      alreadyAdded
+                        ? 'bg-[#EBF3ED]/70 border-[#387249]/50 opacity-80 cursor-default'
+                        : 'bg-white hover:bg-[#F9F6EE] border-[#E7E0D2] hover:border-[#275236] shadow-xs cursor-pointer active:scale-98'
+                    }`}
                   >
-                    <option value="transport">Transport</option>
-                    <option value="food">Food & Diet</option>
-                    <option value="energy">Energy</option>
-                    <option value="water">Water</option>
-                    <option value="consumption">Consumption</option>
-                  </select>
-                </div>
+                    <div className="flex items-start gap-2.5">
+                      <span className="text-2xl shrink-0 p-1 bg-[#FAF7F0] rounded-xl border border-[#E7E0D2]">
+                        {preset.emoji}
+                      </span>
+                      <div className="space-y-0.5">
+                        <div className="text-xs sm:text-sm font-bold text-stone-900 leading-snug">
+                          {preset.title}
+                        </div>
+                        <div className="text-[11px] text-stone-500 line-clamp-2 leading-relaxed">
+                          {preset.description}
+                        </div>
+                      </div>
+                    </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 mb-1">CO₂ Savings (kg)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    value={co2SavingsKg}
-                    onChange={(e) => setCo2SavingsKg(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
-                  />
-                </div>
-              </div>
+                    <div className="flex items-center justify-between pt-1 border-t border-[#E7E0D2]/50 text-[11px]">
+                      <span className="font-mono font-bold text-[#275236]">
+                        +{preset.points} pts
+                      </span>
+                      {alreadyAdded ? (
+                        <span className="text-[10px] font-bold text-[#275236] flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>追加済み</span>
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 rounded-xl bg-[#275236] text-white text-[10px] font-bold flex items-center gap-1">
+                          <Plus className="w-3 h-3" />
+                          <span>追加する</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">Description (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="Why this action helps the environment"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-stone-300 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-stone-600 mb-1">Water (L)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={waterSavingsLiters}
-                    onChange={(e) => setWaterSavingsLiters(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-lg border border-stone-300 text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-stone-600 mb-1">Waste (kg)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    value={wasteSavedKg}
-                    onChange={(e) => setWasteSavedKg(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-lg border border-stone-300 text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-stone-600 mb-1">Energy (kWh)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    value={energySavedKwh}
-                    onChange={(e) => setEnergySavedKwh(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-lg border border-stone-300 text-xs"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-3 pt-3 border-t border-stone-100">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 rounded-xl text-stone-600 text-xs font-semibold hover:bg-stone-100"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs cursor-pointer"
-                >
-                  Save Habit
-                </button>
-              </div>
-            </form>
+            {/* Modal Footer */}
+            <div className="pt-2 border-t border-[#E7E0D2] flex justify-end shrink-0">
+              <button
+                onClick={() => setShowCatalogModal(false)}
+                className="px-5 py-2 rounded-2xl bg-[#FAF7F0] hover:bg-[#F2ECE1] border border-[#E7E0D2] text-xs font-bold text-stone-700 cursor-pointer"
+              >
+                閉じる
+              </button>
+            </div>
           </div>
         </div>
       )}

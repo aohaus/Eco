@@ -1,26 +1,18 @@
-// Source: Google Maps Platform Code Assist
-import React, { useState, useEffect, useCallback } from 'react';
-import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import L from 'leaflet';
 import { LocalEcoMission, Coordinates } from '../../types/missionTypes';
-import { POPULAR_LOCATIONS, generateLocalMissionsForLocation, calculateDistanceMeters } from '../../data/localMissionsData';
+import { POPULAR_LOCATIONS, generateLocalMissionsForLocation } from '../../data/localMissionsData';
 import { sounds } from '../../utils/soundEffects';
 import { 
-  Compass, 
-  Crosshair, 
   MapPin, 
   Sparkles, 
   Navigation, 
-  Zap, 
-  Award, 
   CheckCircle2, 
-  Layers, 
-  RefreshCw,
-  Info,
-  Radio,
   Globe2,
-  AlertCircle
+  Compass,
+  Award,
+  Layers
 } from 'lucide-react';
-import { ShatominAvatar } from '../ShatominAvatar';
 
 interface LocalGpsEcoMapProps {
   language: 'ja' | 'en';
@@ -28,22 +20,27 @@ interface LocalGpsEcoMapProps {
   completedMissionIds: Set<string>;
 }
 
-const DEFAULT_CENTER: Coordinates = { lat: 35.6717, lng: 139.6949 }; // Tokyo Yoyogi Park
+// Default to Desa ParkCity, KL (or Tokyo)
+const DEFAULT_CENTER: Coordinates = { lat: 3.1873, lng: 101.6372 }; // Desa ParkCity, KL
 
 export const LocalGpsEcoMap: React.FC<LocalGpsEcoMapProps> = ({
   language,
   onSelectLocalMission,
   completedMissionIds,
 }) => {
-  const apiKey = ((import.meta as unknown as { env?: Record<string, string> }).env?.VITE_GOOGLE_MAPS_API_KEY) || '';
   const [userLocation, setUserLocation] = useState<Coordinates>(DEFAULT_CENTER);
   const [isLocating, setIsLocating] = useState<boolean>(false);
-  const [locationStatus, setLocationStatus] = useState<string>('Ready');
-  const [selectedSpotIndex, setSelectedSpotIndex] = useState<number>(1); // Default to Yoyogi Park
+  const [locationStatus, setLocationStatus] = useState<string>('');
+  const [selectedSpotIndex, setSelectedSpotIndex] = useState<number>(1); // Index 1: Desa ParkCity, KL
   const [missions, setMissions] = useState<LocalEcoMission[]>([]);
-  const [hoveredMission, setHoveredMission] = useState<LocalEcoMission | null>(null);
 
-  // Generate missions around user location
+  // Leaflet map refs
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const userMarkerRef = useRef<L.Marker | null>(null);
+  const missionMarkersRef = useRef<L.Marker[]>([]);
+
+  // Generate missions around current location
   const refreshMissions = useCallback((coords: Coordinates) => {
     const list = generateLocalMissionsForLocation(coords, language);
     setMissions(list);
@@ -53,14 +50,118 @@ export const LocalGpsEcoMap: React.FC<LocalGpsEcoMapProps> = ({
     refreshMissions(userLocation);
   }, [userLocation, refreshMissions]);
 
-  // Request actual browser GPS coordinates
+  // Initialize Leaflet OpenStreetMap
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+    if (mapInstanceRef.current) return; // already initialized
+
+    // Create map instance
+    const map = L.map(mapContainerRef.current, {
+      center: [userLocation.lat, userLocation.lng],
+      zoom: 15,
+      zoomControl: true,
+      attributionControl: true,
+    });
+
+    // Clean, natural map tiles (CartoDB Positron / OSM Voyager)
+    // Warm, crisp, light-themed map perfect for Minimal Clean design
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+    }).addTo(map);
+
+    mapInstanceRef.current = map;
+
+    return () => {
+      map.remove();
+      mapInstanceRef.current = null;
+    };
+  }, []);
+
+  // Update map center and markers when userLocation or missions change
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    map.flyTo([userLocation.lat, userLocation.lng], 15, {
+      duration: 1.2,
+    });
+
+    // 1. Update user location marker (Shatomin Avatar icon)
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setLatLng([userLocation.lat, userLocation.lng]);
+    } else {
+      const userIcon = L.divIcon({
+        className: 'custom-shatomin-pin',
+        html: `
+          <div class="relative flex flex-col items-center select-none cursor-pointer">
+            <div class="w-12 h-12 rounded-full bg-white border-3 border-[#275236] shadow-lg flex items-center justify-center p-0.5 transform -translate-y-2 hover:scale-110 transition-transform">
+              <span class="text-2xl leading-none">🌱</span>
+            </div>
+            <div class="px-2 py-0.5 rounded-full bg-[#275236] text-white text-[10px] font-extrabold whitespace-nowrap -mt-1 shadow-md">
+              ${language === 'ja' ? 'シャトミン現在地' : 'Shatomin'}
+            </div>
+          </div>
+        `,
+        iconSize: [48, 54],
+        iconAnchor: [24, 48],
+      });
+
+      const marker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon, zIndexOffset: 1000 }).addTo(map);
+      userMarkerRef.current = marker;
+    }
+
+    // 2. Clear old mission markers
+    missionMarkersRef.current.forEach((m) => m.remove());
+    missionMarkersRef.current = [];
+
+    // 3. Add new mission markers
+    missions.forEach((mission) => {
+      const isDone = completedMissionIds.has(mission.id);
+
+      const missionIcon = L.divIcon({
+        className: 'custom-mission-pin',
+        html: `
+          <div class="relative flex flex-col items-center group cursor-pointer transition-transform hover:scale-125 select-none">
+            <div class="px-2.5 py-1 rounded-2xl text-xs font-black shadow-md flex items-center gap-1.5 border transition-all ${
+              isDone
+                ? 'bg-[#EBF3ED] text-[#275236] border-[#387249]'
+                : 'bg-white text-stone-900 border-[#E7E0D2] group-hover:border-[#275236]'
+            }">
+              <span class="text-base">${mission.emoji}</span>
+              <span class="font-mono text-[10px] font-bold">
+                ${isDone ? '✓ DONE' : `${mission.distanceMeters}m`}
+              </span>
+            </div>
+            <div class="w-2.5 h-2.5 rotate-45 -mt-1 border-r border-b ${
+              isDone ? 'bg-[#EBF3ED] border-[#387249]' : 'bg-white border-[#E7E0D2]'
+            }"></div>
+          </div>
+        `,
+        iconSize: [80, 40],
+        iconAnchor: [40, 36],
+      });
+
+      const marker = L.marker([mission.coordinates.lat, mission.coordinates.lng], { icon: missionIcon }).addTo(map);
+
+      marker.on('click', () => {
+        sounds.playPop();
+        onSelectLocalMission(mission);
+      });
+
+      missionMarkersRef.current.push(marker);
+    });
+  }, [userLocation, missions, completedMissionIds, language, onSelectLocalMission]);
+
+  // Request actual browser GPS coordinates (100% Touch-Friendly)
   const handleGetLiveGps = () => {
     if (!navigator.geolocation) {
       setLocationStatus(language === 'ja' ? 'GPS非対応ブラウザです' : 'GPS not supported');
       return;
     }
     setIsLocating(true);
-    setLocationStatus(language === 'ja' ? '衛星GPS測位中...' : 'Acquiring satellite GPS...');
+    setLocationStatus(language === 'ja' ? 'GPS測位中...' : 'Acquiring GPS...');
     sounds.playBeep();
 
     navigator.geolocation.getCurrentPosition(
@@ -72,13 +173,13 @@ export const LocalGpsEcoMap: React.FC<LocalGpsEcoMapProps> = ({
         setUserLocation(coords);
         setSelectedSpotIndex(0);
         setIsLocating(false);
-        setLocationStatus(language === 'ja' ? '現在地と同期完了！' : 'Synced to Current GPS!');
+        setLocationStatus(language === 'ja' ? '現在地に同期しました！' : 'Synced to Current GPS!');
         sounds.playFanfare();
       },
       (error) => {
         console.warn('Geolocation error:', error);
         setIsLocating(false);
-        setLocationStatus(language === 'ja' ? 'GPS取得制限のためプリセット位置を使用中' : 'Using preset spot (GPS permission restricted)');
+        setLocationStatus(language === 'ja' ? 'GPS利用がオフのためプリセット地点を表示中' : 'Using preset spot (GPS permission restricted)');
         sounds.playBeep();
       },
       { enableHighAccuracy: true, timeout: 8000 }
@@ -92,7 +193,7 @@ export const LocalGpsEcoMap: React.FC<LocalGpsEcoMapProps> = ({
     const spot = POPULAR_LOCATIONS[index];
     if (spot.coords) {
       setUserLocation(spot.coords);
-      setLocationStatus(language === 'ja' ? `${spot.nameJa} にテレポート！` : `Teleported to ${spot.nameEn}!`);
+      setLocationStatus(language === 'ja' ? `${spot.nameJa} に移動しました！` : `Teleported to ${spot.nameEn}!`);
     } else {
       handleGetLiveGps();
     }
@@ -100,30 +201,30 @@ export const LocalGpsEcoMap: React.FC<LocalGpsEcoMapProps> = ({
 
   return (
     <div className="space-y-4 select-none animate-fadeIn font-sans">
-      {/* Control Header & Spot Teleporter */}
-      <div className="bg-[#0b1b2d] border-2 border-cyan-500/40 rounded-3xl p-4 sm:p-5 text-white shadow-xl space-y-3 font-mono">
+      {/* Control Header & Spot Teleporter (Minimal Clean Warm Palette) */}
+      <div className="bg-[#FAF7F0] border border-[#E7E0D2] rounded-3xl p-4 sm:p-5 shadow-xs space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-400 flex items-center justify-center text-cyan-300">
-              <Radio className="w-5 h-5 animate-pulse" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#EBF3ED] border border-[#387249]/30 flex items-center justify-center text-[#275236]">
+              <Compass className="w-5 h-5 text-[#275236]" />
             </div>
             <div>
-              <div className="text-[10px] text-cyan-300 font-bold uppercase tracking-wider flex items-center gap-1.5">
-                <span>LOCAL GPS ECO-RADAR</span>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <div className="text-[10px] text-[#275236] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                <span>OPENSTREETMAP REAL-TIME PATROL</span>
+                <span className="w-2 h-2 rounded-full bg-[#275236] animate-pulse" />
               </div>
-              <h2 className="text-base sm:text-lg font-black text-white font-sans">
+              <h2 className="text-base sm:text-lg font-black text-stone-900">
                 {language === 'ja' ? '現在地・身近なエコパトロール' : 'Hyperlocal Real-Time Eco Radar'}
               </h2>
             </div>
           </div>
 
-          {/* GPS Locate Button */}
+          {/* GPS Locate Button (Touch-Friendly) */}
           <div className="flex items-center gap-2">
             <button
               onClick={handleGetLiveGps}
               disabled={isLocating}
-              className="min-h-[44px] px-4 py-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-stone-950 font-black text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-emerald-500/20"
+              className="min-h-[42px] px-4 py-2 rounded-2xl bg-[#275236] hover:bg-[#1E432B] active:scale-95 text-white font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
               <Navigation className={`w-4 h-4 ${isLocating ? 'animate-spin' : ''}`} />
               <span>{language === 'ja' ? '現在地を取得 (GPS)' : 'Live GPS'}</span>
@@ -131,20 +232,20 @@ export const LocalGpsEcoMap: React.FC<LocalGpsEcoMapProps> = ({
           </div>
         </div>
 
-        {/* Popular Spot Teleporter Pills */}
+        {/* Spot Teleporter Pills (Includes Desa ParkCity, KL) */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar pt-1">
-          <span className="text-[11px] text-cyan-300/80 font-bold whitespace-nowrap flex items-center gap-1">
-            <Globe2 className="w-3.5 h-3.5" />
-            <span>{language === 'ja' ? '探査スポット:' : 'Spots:'}</span>
+          <span className="text-[11px] text-stone-500 font-bold whitespace-nowrap flex items-center gap-1">
+            <Globe2 className="w-3.5 h-3.5 text-[#275236]" />
+            <span>{language === 'ja' ? 'スポット:' : 'Spots:'}</span>
           </span>
           {POPULAR_LOCATIONS.map((spot, i) => (
             <button
               key={i}
               onClick={() => handleSelectSpot(i)}
-              className={`min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border cursor-pointer flex items-center gap-1.5 ${
+              className={`min-h-[36px] px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border cursor-pointer flex items-center gap-1.5 ${
                 selectedSpotIndex === i
-                  ? 'bg-cyan-500 text-stone-950 border-cyan-300 shadow-md'
-                  : 'bg-black/40 text-stone-300 border-white/10 hover:bg-white/10'
+                  ? 'bg-[#275236] text-white border-[#275236] shadow-xs scale-105'
+                  : 'bg-white text-stone-700 border-[#E7E0D2] hover:bg-[#F4EFE6]'
               }`}
             >
               <span>{spot.icon}</span>
@@ -153,164 +254,34 @@ export const LocalGpsEcoMap: React.FC<LocalGpsEcoMapProps> = ({
           ))}
         </div>
 
-        {/* Live Coordinate Status */}
-        <div className="text-[11px] text-stone-400 flex flex-wrap items-center justify-between border-t border-white/10 pt-2">
-          <span>STATUS: <span className="text-cyan-300 font-bold">{locationStatus}</span></span>
-          <span>COORDINATES: <span className="text-emerald-400 font-bold">{userLocation.lat.toFixed(4)}°N, {userLocation.lng.toFixed(4)}°E</span></span>
-        </div>
-      </div>
-
-      {/* Main Map Container */}
-      <div className="relative w-full h-[520px] sm:h-[580px] rounded-3xl overflow-hidden border-2 border-cyan-500/40 shadow-2xl bg-[#06121e]">
-        {apiKey ? (
-          /* Google Maps Platform Live Rendering via @vis.gl/react-google-maps */
-          <APIProvider apiKey={apiKey}>
-            <div className="w-full h-full">
-              <Map
-                mapId="DEMO_MAP_ID"
-                defaultCenter={userLocation}
-                center={userLocation}
-                defaultZoom={16}
-                gestureHandling="greedy"
-                disableDefaultUI={false}
-                internalUsageAttributionIds={["gmp_mcp_codeassist_v1_aistudio"]}
-                style={{ width: '100%', height: '100%' }}
-              >
-                {/* User GPS Center Marker with Shatomin Avatar */}
-                <AdvancedMarker position={userLocation}>
-                  <div className="relative flex flex-col items-center group cursor-pointer">
-                    <div className="absolute -top-12 bg-stone-900/90 text-cyan-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border border-cyan-400 shadow-lg whitespace-nowrap">
-                      {language === 'ja' ? 'シャトミンと現在地' : 'You & Shatomin'}
-                    </div>
-                    <div className="w-12 h-12 rounded-full bg-emerald-500/30 border-2 border-emerald-400 p-1 flex items-center justify-center animate-pulse">
-                      <ShatominAvatar expression="smile" size="sm" />
-                    </div>
-                    <div className="w-4 h-4 bg-emerald-400 rounded-full border-2 border-white shadow-md -mt-1" />
-                  </div>
-                </AdvancedMarker>
-
-                {/* Local Mission Markers on Google Map */}
-                {missions.map((mission) => {
-                  const isDone = completedMissionIds.has(mission.id);
-                  return (
-                    <AdvancedMarker
-                      key={mission.id}
-                      position={mission.coordinates}
-                      onClick={() => {
-                        sounds.playPop();
-                        onSelectLocalMission(mission);
-                      }}
-                    >
-                      <div className="flex flex-col items-center group cursor-pointer transition-transform hover:scale-125">
-                        <div className={`px-2.5 py-1 rounded-xl text-xs font-black shadow-xl flex items-center gap-1.5 border ${
-                          isDone 
-                            ? 'bg-emerald-600 text-white border-emerald-300' 
-                            : 'bg-stone-900/90 text-white border-cyan-400'
-                        }`}>
-                          <span className="text-base">{mission.emoji}</span>
-                          <span className="font-mono text-[10px]">
-                            {isDone ? 'CLEARED' : `${mission.distanceMeters}m`}
-                          </span>
-                        </div>
-                        <div className={`w-3 h-3 rotate-45 -mt-1 border-r border-b ${
-                          isDone ? 'bg-emerald-600 border-emerald-300' : 'bg-stone-900 border-cyan-400'
-                        }`} />
-                      </div>
-                    </AdvancedMarker>
-                  );
-                })}
-              </Map>
-            </div>
-          </APIProvider>
-        ) : (
-          /* High-Tech Vector & Satellite Simulation Map Canvas when Key is pending */
-          <div className="relative w-full h-full bg-gradient-to-b from-[#0a1828] via-[#0e243d] to-[#071320] flex items-center justify-center overflow-hidden">
-            {/* Grid & Radar Lines */}
-            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#38bdf8_1.5px,transparent_1.5px)] [background-size:24px_24px]" />
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-96 h-96 rounded-full border border-cyan-500/20 animate-ping [animation-duration:6s]" />
-              <div className="w-[500px] h-[500px] rounded-full border border-cyan-400/10" />
-              <div className="w-[300px] h-[300px] rounded-full border border-emerald-400/20" />
-            </div>
-
-            {/* User GPS Center Beacon */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center">
-              <div className="bg-stone-900/90 text-cyan-300 text-[10px] font-mono font-bold px-3 py-1 rounded-full border border-cyan-400 shadow-xl mb-1 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                <span>{language === 'ja' ? '現在地・パトロール拠点' : 'Current GPS Waypoint'}</span>
-              </div>
-              <div className="w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-400 p-1 flex items-center justify-center shadow-2xl">
-                <ShatominAvatar expression="sparkle" size="sm" />
-              </div>
-            </div>
-
-            {/* Mission Scatter Pins on Radar Canvas */}
-            {missions.map((mission, idx) => {
-              const isDone = completedMissionIds.has(mission.id);
-              // Scatter relative to center
-              const angles = [30, 85, 140, 210, 280, 330];
-              const distances = [140, 180, 150, 190, 160, 200];
-              const angle = (angles[idx % angles.length] * Math.PI) / 180;
-              const dist = distances[idx % distances.length];
-              const x = Math.cos(angle) * dist;
-              const y = Math.sin(angle) * dist;
-
-              return (
-                <div
-                  key={mission.id}
-                  style={{
-                    transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
-                  }}
-                  className="absolute top-1/2 left-1/2 z-30 flex flex-col items-center"
-                >
-                  <button
-                    onClick={() => {
-                      sounds.playPop();
-                      onSelectLocalMission(mission);
-                    }}
-                    onMouseEnter={() => setHoveredMission(mission)}
-                    onMouseLeave={() => setHoveredMission(null)}
-                    className={`group p-2.5 rounded-2xl border-2 transition-all cursor-pointer shadow-xl flex flex-col items-center gap-1 hover:scale-125 ${
-                      isDone
-                        ? 'bg-emerald-950/90 border-emerald-400 text-emerald-300'
-                        : 'bg-[#0e253f]/95 border-cyan-400 text-white hover:border-amber-400'
-                    }`}
-                  >
-                    <span className="text-2xl">{mission.emoji}</span>
-                    <span className="font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-black/60">
-                      {isDone ? 'DONE' : `${mission.distanceMeters}m`}
-                    </span>
-                  </button>
-                  <div className="text-[10px] font-bold text-cyan-200 mt-1 max-w-[110px] text-center truncate bg-black/70 px-1.5 py-0.5 rounded-md">
-                    {language === 'ja' ? mission.titleJa : mission.title}
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Google Maps API Notice in Corner */}
-            <div className="absolute bottom-4 left-4 right-4 z-30 bg-[#081524]/90 border border-cyan-500/40 backdrop-blur-md rounded-2xl p-3 text-white flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
-              <div className="flex items-center gap-2">
-                <Info className="w-4 h-4 text-cyan-400 shrink-0" />
-                <span className="text-stone-300">
-                  {language === 'ja' 
-                    ? 'Google Maps API連携モード（APIキー設定で衛星3D航空写真マップが起動します）' 
-                    : 'Google Maps API ready (Configure VITE_GOOGLE_MAPS_API_KEY for dynamic 3D tiles)'}
-                </span>
-              </div>
-              <div className="text-emerald-400 font-bold text-[11px]">
-                RADAR: 6 ANOMALIES DETECTED
-              </div>
-            </div>
+        {locationStatus && (
+          <div className="text-[11px] font-bold text-[#275236] bg-[#EBF3ED] px-3 py-1.5 rounded-xl inline-block border border-[#387249]/20">
+            {locationStatus}
           </div>
         )}
       </div>
 
+      {/* Real OpenStreetMap Container */}
+      <div className="relative w-full h-[380px] sm:h-[460px] rounded-3xl overflow-hidden border border-[#E7E0D2] shadow-sm bg-[#F5F2EA]">
+        <div ref={mapContainerRef} className="w-full h-full z-10" />
+
+        {/* Floating Quick Summary Badge in Top-Right */}
+        <div className="absolute top-3 right-3 z-20 bg-white/90 backdrop-blur-sm border border-[#E7E0D2] px-3 py-1.5 rounded-2xl shadow-xs text-xs font-bold text-stone-800 flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+          <span>
+            {completedMissionIds.size} / {missions.length} {language === 'ja' ? '完了' : 'Cleared'}
+          </span>
+        </div>
+      </div>
+
       {/* Mission Quick List Cards below the Map */}
-      <div className="space-y-2 font-sans">
-        <div className="text-xs font-mono font-bold text-cyan-300 flex items-center justify-between">
-          <span>{language === 'ja' ? '周辺のローカル・エコミッション一覧' : 'NEARBY LOCAL ECO MISSIONS'}</span>
-          <span className="text-stone-400">
+      <div className="space-y-2 font-sans pt-2">
+        <div className="text-xs font-bold text-stone-700 flex items-center justify-between">
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[#275236]" />
+            <span>{language === 'ja' ? '周辺のエコミッション（タップで調査開始）' : 'Nearby Eco Missions (Tap to Inspect)'}</span>
+          </span>
+          <span className="text-stone-400 font-mono">
             {completedMissionIds.size} / {missions.length} CLEARED
           </span>
         </div>
@@ -325,36 +296,38 @@ export const LocalGpsEcoMap: React.FC<LocalGpsEcoMapProps> = ({
                   sounds.playPop();
                   onSelectLocalMission(mission);
                 }}
-                className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-start justify-between gap-3 ${
+                className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-start justify-between gap-3 ${
                   isDone
-                    ? 'bg-emerald-950/40 border-emerald-500/50 text-stone-300'
-                    : 'bg-[#0d1f35] border-cyan-500/30 hover:border-cyan-400 text-white hover:bg-[#122842]'
+                    ? 'bg-[#EBF3ED] border-[#387249] shadow-xs text-stone-800'
+                    : 'bg-[#FCFAF5] hover:bg-white border-[#E7E0D2] hover:border-[#387249]/40 text-stone-900'
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-black/40 border border-white/10 flex items-center justify-center text-2xl shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-[#F2ECE1] border border-[#E7E0D2] flex items-center justify-center text-2xl shrink-0">
                     {mission.emoji}
                   </div>
                   <div className="space-y-1">
                     <div className="text-xs font-bold line-clamp-1">
                       {language === 'ja' ? mission.titleJa : mission.title}
                     </div>
-                    <div className="text-[11px] text-stone-400 line-clamp-2">
+                    <div className="text-[11px] text-stone-600 line-clamp-2">
                       {language === 'ja' ? mission.descriptionJa : mission.description}
                     </div>
                     <div className="flex items-center gap-2 text-[10px] font-mono pt-1">
-                      <span className="text-emerald-400 font-bold">+{mission.rewardPoints} PTS</span>
-                      <span className="text-cyan-300">📍 {mission.distanceMeters}m</span>
+                      <span className="text-[#275236] font-bold">+{mission.rewardPoints} PTS</span>
+                      <span className="text-stone-500">📍 {mission.distanceMeters}m</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="shrink-0">
                   {isDone ? (
-                    <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                    <div className="w-6 h-6 rounded-full bg-[#275236] text-white flex items-center justify-center">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </div>
                   ) : (
-                    <span className="px-2.5 py-1 rounded-xl bg-cyan-500 text-stone-950 font-bold text-[10px] font-mono">
-                      START
+                    <span className="px-3 py-1.5 rounded-xl bg-[#275236] text-white font-bold text-[10px] tracking-wide">
+                      {language === 'ja' ? '調査' : 'START'}
                     </span>
                   )}
                 </div>

@@ -19,6 +19,7 @@ export function calculateDistanceMeters(coord1: Coordinates, coord2: Coordinates
 // Preset city spots for instant teleporting/demoing if GPS is unavailable
 export const POPULAR_LOCATIONS = [
   { nameJa: '現在地 (GPS)', nameEn: 'Current GPS', coords: null, icon: '📍' },
+  { nameJa: 'マレーシア・Desa ParkCity', nameEn: 'Desa ParkCity, KL', coords: { lat: 3.1873, lng: 101.6372 }, icon: '🇲🇾' },
   { nameJa: '東京・代々木公園', nameEn: 'Tokyo Yoyogi Park', coords: { lat: 35.6717, lng: 139.6949 }, icon: '🗼' },
   { nameJa: '大阪・大阪城公園', nameEn: 'Osaka Castle Park', coords: { lat: 34.6873, lng: 135.5262 }, icon: '🏯' },
   { nameJa: '京都・鴨川デルタ', nameEn: 'Kyoto Kamo River', coords: { lat: 35.0302, lng: 135.7725 }, icon: '⛩️' },
